@@ -71,6 +71,43 @@ app.get('/api/logs', async (req: Request, res: Response) => {
   }
 });
 
+/* 
+_id
+67beede1ce9efc45a762aaba
+doorOpenState
+"closed"
+status
+"door open state carCapturedTimestamp received"
+timestamp
+2025-02-26T10:33:05.000+00:00
+carCapturedTimestamp
+2025-02-26T09:26:39.000+00:00 
+*/
+interface IDoor {
+  doorOpenState: string;
+  status: string;
+  timestamp: Date;
+  carCapturedTimestamp: Date;
+}
+
+const doorSchema = new mongoose.Schema<IDoor>({
+  doorOpenState: { type: String, required: true },
+  status: { type: String, required: true },
+  timestamp: { type: Date, required: true },
+  carCapturedTimestamp: { type: Date, required: true },
+});
+
+// Create the Door model
+const Door = mongoose.model<IDoor>('Door', doorSchema, 'vehicle_events');
+app.get('/api/door', async (req: Request, res: Response) => {
+  try {
+    const doorEvents = await Door.find({ status: "door open state carCapturedTimestamp received" });
+    res.json(doorEvents);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error fetching door data" });
+  }
+});
 
 // Start Server
 const PORT = process.env.PORT || 5000;
