@@ -9,6 +9,8 @@ dotenv.config();
 import express, { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import router from './webhook';
+
 
 const app: express.Express = express();
 app.use(cors()); // Allow frontend access
@@ -26,21 +28,6 @@ mongoose
   .then(() => console.log("MongoDB Connected"))
   .catch((err: Error) => console.error("MongoDB connection error:", err));
 
-
-/*
-_id
-67a6300e860b4d10bd8ce4df
-latitude
-53.554551
-status
-"carCapturedTimestamp received"
-timestamp
-2025-02-07T16:08:46.000+00:00
-longitude
-9.962152
-carCapturedTimestamp
-2025-02-06T21:01:09.000+00:00
-*/
 interface IParking {
   latitude: number;
   status: string;
@@ -71,18 +58,6 @@ app.get('/api/logs', async (req: Request, res: Response) => {
   }
 });
 
-/* 
-_id
-67beede1ce9efc45a762aaba
-doorOpenState
-"closed"
-status
-"door open state carCapturedTimestamp received"
-timestamp
-2025-02-26T10:33:05.000+00:00
-carCapturedTimestamp
-2025-02-26T09:26:39.000+00:00 
-*/
 interface IDoor {
   doorOpenState: string;
   status: string;
@@ -99,6 +74,7 @@ const doorSchema = new mongoose.Schema<IDoor>({
 
 // Create the Door model
 const Door = mongoose.model<IDoor>('Door', doorSchema, 'vehicle_events');
+
 app.get('/api/door', async (req: Request, res: Response) => {
   try {
     const doorEvents = await Door.find({ status: "door open state carCapturedTimestamp received" });
@@ -108,6 +84,9 @@ app.get('/api/door', async (req: Request, res: Response) => {
     res.status(500).json({ error: "Error fetching door data" });
   }
 });
+
+// Shiftr.io hits this endpoint
+app.use('/shiftr-webhook', router);
 
 // Start Server
 const PORT = process.env.PORT || 5000;
