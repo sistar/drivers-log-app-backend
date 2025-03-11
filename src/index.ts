@@ -2,52 +2,32 @@
 // filepath: /Users/ralf.sigmund/GitHub/drivers-log-app-backend/src/index.ts
 // server.ts
 
-
 import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Request, Response } from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import router from './webhook';
-
+import rateLimit from 'express-rate-limit';
+import { Door }  from "./models/VehicleEvent";
+import { Parking } from "./models/VehicleEvent";
 
 const app: express.Express = express();
+
+// Rate limiting configuration
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: 'draft-7', // Return rate limit info in the RateLimit-* headers
+  legacyHeaders: false, // Disable the X-RateLimit-* headers
+  message: 'Too many requests from this IP, please try again later',
+  // Add the 'store' option if you need a more robust solution (Redis, etc.)
+});
+
 app.use(cors()); // Allow frontend access
 app.use(express.json());
 
-// Ensure that the MONGO_URI is provided
-const mongoUri = process.env.MONGO_URI;
-if (!mongoUri) {
-  throw new Error("MONGO_URI environment variable is not set");
-}
-
-// Connect to MongoDB Atlas
-mongoose
-  .connect(mongoUri)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err: Error) => console.error("MongoDB connection error:", err));
-
-interface IParking {
-  latitude: number;
-  status: string;
-  timestamp: Date;
-  longitude: number;
-  carCapturedTimestamp: Date;
-}
-
-const parkingSchema = new mongoose.Schema<IParking>({
-  latitude: { type: Number, required: true },
-  status: { type: String, required: true },
-  timestamp: { type: Date, required: true },
-  longitude: { type: Number, required: true },
-  carCapturedTimestamp: { type: Date, required: true },
-});
-
-// Create the Parking model
-const Parking = mongoose.model<IParking>('Parking', parkingSchema, 'vehicle_events');
-
-// API Endpoint to fetch active pricing models
+// API Endpoint to fetch parking events
 app.get('/api/logs', async (req: Request, res: Response) => {
   try {
     const parkingEvents = await Parking.find({ status: "carCapturedTimestamp received" });
@@ -58,23 +38,7 @@ app.get('/api/logs', async (req: Request, res: Response) => {
   }
 });
 
-interface IDoor {
-  doorOpenState: string;
-  status: string;
-  timestamp: Date;
-  carCapturedTimestamp: Date;
-}
-
-const doorSchema = new mongoose.Schema<IDoor>({
-  doorOpenState: { type: String, required: true },
-  status: { type: String, required: true },
-  timestamp: { type: Date, required: true },
-  carCapturedTimestamp: { type: Date, required: true },
-});
-
-// Create the Door model
-const Door = mongoose.model<IDoor>('Door', doorSchema, 'vehicle_events');
-
+// API Endpoint to fetch door events
 app.get('/api/door', async (req: Request, res: Response) => {
   try {
     const doorEvents = await Door.find({ status: "door open state carCapturedTimestamp received" });
@@ -87,6 +51,7 @@ app.get('/api/door', async (req: Request, res: Response) => {
 
 // Shiftr.io hits this endpoint
 app.use('/shiftr-webhook', router);
+app.use('/shiftr-webhook', limiter);
 
 // Start Server
 const PORT = process.env.PORT || 5000;

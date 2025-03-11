@@ -1,19 +1,18 @@
-// webhook.ts
-import express, { Request, Response } from 'express';
-import axios from 'axios';
+import express, { Request, Response, Router } from 'express';
+import { apiKeyAuth } from './middleware/apiKeyAuth';
+import Location from './models/LocationEvent'; // Assuming you have a Location model defined in models/Location
 
-const router = express.Router();
+const router: Router = express.Router();
 
-// POST /shiftr-webhook
-router.post('/', async (req: Request, res: Response) => {
+// Apply API key authentication to this route
+router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   try {
     const shiftrData = req.body;
     console.log('Received data from shiftr.io:', shiftrData);
 
-    // Forward the data to your backend route (which could be in the same app or external)
-    const backendUrl = 'https://your-backend.com/drivers-log';
-
-    await axios.post(backendUrl, shiftrData);
+    // Save the data to MongoDB
+    const locationEvent = new Location(shiftrData);
+    await locationEvent.save();
 
     return res.status(200).send('OK');
   } catch (err) {
